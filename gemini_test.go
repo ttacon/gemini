@@ -7,8 +7,9 @@ type TestCreateTableForStruct struct {
 }
 
 type testCreateQuery struct {
-	i   interface{}
-	out string
+	i       interface{}
+	dialect Dialect
+	out     string
 }
 
 func Test_CreateTableQueryFor(t *testing.T) {
@@ -16,14 +17,15 @@ func Test_CreateTableQueryFor(t *testing.T) {
 		testCreateQuery{
 			struct {
 				TableInfo TableInfo `name:"differentName"`
+				Text      string
 			}{},
-			"CREATE TABLE differentName (\n);",
+			MySQL{},
+			"CREATE TABLE differentName (\n\tText varchar(255)\n);",
 		},
 	}
-	g := &Gemini{}
 
 	for _, test := range tests {
-		query := g.CreateTableQueryFor(test.i)
+		query := CreateTableQueryFor(test.i, test.dialect)
 		if query != test.out {
 			t.Errorf("query %q != expected %q", query, test.out)
 		}

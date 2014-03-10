@@ -49,12 +49,13 @@ func (g *Gemini) AddTableWithName(i interface{}, tableName string) *Gemini {
 }
 
 func (g *Gemini) CreateTableFor(i interface{}) error {
-	query := g.CreateTableQueryFor(i)
+	// need to know how to pass in which db to interact with, or just type?
+	query := CreateTableQueryFor(i, MySQL{})
 	fmt.Println(query)
 	return nil
 }
 
-func (g *Gemini) CreateTableQueryFor(i interface{}) string {
+func CreateTableQueryFor(i interface{}, dialect Dialect) string {
 	query := "CREATE TABLE "
 	val := reflect.ValueOf(i)
 	t := val.Type()
@@ -74,10 +75,27 @@ func (g *Gemini) CreateTableQueryFor(i interface{}) string {
 		if tagName := f.Tag.Get("db"); tagName != "" {
 			fieldName = tagName
 		}
-		// remove the Gemini reciever and pass in dialect as a parameter
-		// so we can query it for the type
+
+		// switch to switch or use const for TableInfo{}
+		if f.Type == reflect.TypeOf(TableInfo{}) {
+			continue
+		}
 		fmt.Println(fieldName)
-		//fieldType := gf.Type
+		fieldType := f.Type
+		// check for db field type in tag
+
+		lineEnding := ","
+		if i == n-1 {
+			lineEnding = ""
+		}
+
+		// query tag for other info like maxsize
+		query += fmt.Sprintf(
+			"\t%s %s%s\n",
+			fieldName,
+			dialect.ToSqlType(fieldType, 0),
+			lineEnding,
+		)
 
 	}
 
