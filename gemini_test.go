@@ -18,9 +18,10 @@ func Test_CreateTableQueryFor(t *testing.T) {
 			struct {
 				TableInfo TableInfo `name:"differentName"`
 				Text      string
+				Id        int64
 			}{},
 			MySQL{},
-			"CREATE TABLE differentName (\n\tText varchar(255)\n);",
+			"CREATE TABLE differentName (\n\tText varchar(255),\n\tId bigint\n);",
 		},
 	}
 
