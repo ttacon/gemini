@@ -50,3 +50,23 @@ func (g *Gemini) getItFrom(i interface{}, key interface{}, table *TableMap) erro
 	// TODO(ttacon)
 	return nil
 }
+
+func (g *Gemini) Insert(i interface{}) error {
+	// TODO(ttacon)
+	return nil
+}
+
+func (g *Gemini) Delete(i interface{}) error {
+	// TODO(ttacon)
+	return nil
+}
+
+func (g *Gemini) Update(i interface{}) error {
+	// TODO(ttacon)
+	return nil
+}
+
+func (g *Gemini) Select(i interface{}, query string, args ...interface{}) error {
+	// TODO(ttacon)
+	return nil
+}
