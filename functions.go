@@ -70,3 +70,8 @@ func (g *Gemini) Select(i interface{}, query string, args ...interface{}) error 
 	// TODO(ttacon)
 	return nil
 }
+
+func (g *Gemini) Exec(i interface{}, query string, args ...interface{}) error {
+	// TODO(ttacon)
+	return nil
+}
