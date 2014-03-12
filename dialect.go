@@ -17,15 +17,15 @@ MongoDb
 var TestMode = true
 
 type Dialect interface {
-	ToSqlType(val reflect.Type, maxsize int) string
+	ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string
 }
 
 type MySQL struct{}
 
-func (m MySQL) ToSqlType(val reflect.Type, maxsize int) string {
+func (m MySQL) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
 	case reflect.Ptr:
-		return m.ToSqlType(val.Elem(), maxsize)
+		return m.ToSqlType(val.Elem(), maxsize, isAutoIncr)
 	case reflect.Bool:
 		return "boolean"
 	case reflect.Int8:
@@ -67,4 +67,86 @@ func (m MySQL) ToSqlType(val reflect.Type, maxsize int) string {
 		maxsize = 255
 	}
 	return fmt.Sprintf("varchar(%d)", maxsize)
+}
+
+type SqliteDialect struct{}
+
+func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+	switch val.Kind() {
+	case reflect.Ptr:
+		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+	case reflect.Bool:
+		return "integer"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "integer"
+	case reflect.Float64, reflect.Float32:
+		return "real"
+	case reflect.Slice:
+		if val.Elem().Kind() == reflect.Uint8 {
+			return "blob"
+		}
+	}
+
+	switch val.Name() {
+	case "NullInt64":
+		return "integer"
+	case "NullFloat64":
+		return "real"
+	case "NullBool":
+		return "integer"
+	case "Time":
+		return "datetime"
+	}
+
+	if maxsize < 1 {
+		maxsize = 255
+	}
+	return fmt.Sprintf("varchar(%d)", maxsize)
+}
+
+type PostgresDialect struct{}
+
+func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+	switch val.Kind() {
+	case reflect.Ptr:
+		return d.ToSqlType(val.Elem(), maxsize, isAutoIncr)
+	case reflect.Bool:
+		return "boolean"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+		if isAutoIncr {
+			return "serial"
+		}
+		return "integer"
+	case reflect.Int64, reflect.Uint64:
+		if isAutoIncr {
+			return "bigserial"
+		}
+		return "bigint"
+	case reflect.Float64:
+		return "double precision"
+	case reflect.Float32:
+		return "real"
+	case reflect.Slice:
+		if val.Elem().Kind() == reflect.Uint8 {
+			return "bytea"
+		}
+	}
+
+	switch val.Name() {
+	case "NullInt64":
+		return "bigint"
+	case "NullFloat64":
+		return "double precision"
+	case "NullBool":
+		return "boolean"
+	case "Time":
+		return "timestamp with time zone"
+	}
+
+	if maxsize > 0 {
+		return fmt.Sprintf("varchar(%d)", maxsize)
+	} else {
+		return "text"
+	}
+
 }

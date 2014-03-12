@@ -23,6 +23,24 @@ func Test_CreateTableQueryFor(t *testing.T) {
 			MySQL{},
 			"CREATE TABLE differentName (\n\tText varchar(255),\n\tId bigint\n);",
 		},
+		testCreateQuery{
+			struct {
+				TableInfo TableInfo `name:"differentName"`
+				Text      string
+				Id        int64
+			}{},
+			SqliteDialect{},
+			"CREATE TABLE differentName (\n\tText varchar(255),\n\tId integer\n);",
+		},
+		testCreateQuery{
+			struct {
+				TableInfo TableInfo `name:"differentName"`
+				Text      string
+				Id        int64
+			}{},
+			PostgresDialect{},
+			"CREATE TABLE differentName (\n\tText text,\n\tId bigint\n);",
+		},
 	}
 
 	for _, test := range tests {

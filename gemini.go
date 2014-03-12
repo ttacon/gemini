@@ -93,7 +93,7 @@ func CreateTableQueryFor(i interface{}, dialect Dialect) string {
 		query += fmt.Sprintf(
 			"\t%s %s%s\n",
 			fieldName,
-			dialect.ToSqlType(fieldType, 0),
+			dialect.ToSqlType(fieldType, 0, false),
 			lineEnding,
 		)
 
