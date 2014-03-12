@@ -46,6 +46,16 @@ func getColumnsFor(i interface{}) (cols []ColumnMapping) {
 	return
 }
 
+func (t *TableMap) HasPrimaryKey() bool {
+	// TODO(ttacon)
+	return false
+}
+
+func (t *TableMap) PrimaryKey() reflect.Value {
+	// TODO(ttacon)
+	return reflect.ValueOf(nil)
+}
+
 type dbField struct {
 	fieldName  string
 	columnName string

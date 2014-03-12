@@ -16,7 +16,7 @@ type geminiMode string
 type Gemini struct {
 	Dbs map[string]*sql.DB
 
-	StructsMap map[string]TableMap
+	StructsMap map[string]*TableMap
 
 	// unexported fields
 	runInMemory bool
