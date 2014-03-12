@@ -80,7 +80,7 @@ func CreateTableQueryFor(i interface{}, dialect Dialect) string {
 		if f.Type == reflect.TypeOf(TableInfo{}) {
 			continue
 		}
-		fmt.Println(fieldName)
+
 		fieldType := f.Type
 		// check for db field type in tag
 
