@@ -47,8 +47,9 @@ var dbFieldTests = []*dbFieldTest{
 }
 
 func Test_getFieldsFor(t *testing.T) {
+	tMap := TableMap{}
 	for _, test := range dbFieldTests {
-		fields := getFieldsFor(test.in)
+		fields := tMap.getFieldsFor(test.in)
 		if len(fields) != len(test.out) {
 			t.Errorf("expected %d fields, got %d",
 				len(test.out),

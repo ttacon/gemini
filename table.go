@@ -11,6 +11,8 @@ type TableMap struct {
 	TableName  string
 	StructName string
 	Fields     []ColumnMapping
+
+	primaryKeys []reflect.StructField
 }
 
 type ColumnMapping struct {
@@ -24,15 +26,18 @@ type ColumnMapping struct {
 }
 
 func TableMapFromStruct(i interface{}, tableName string) *TableMap {
-	return &TableMap{
+	tableMap := &TableMap{
 		TableName:  tableName,
 		StructName: reflect.TypeOf(i).Name(),
-		Fields:     getColumnsFor(i),
 	}
+	tableMap.getColumnsFor(i)
+
+	return tableMap
 }
 
-func getColumnsFor(i interface{}) (cols []ColumnMapping) {
-	for _, field := range getFieldsFor(i) {
+func (t *TableMap) getColumnsFor(i interface{}) {
+	var cols []ColumnMapping
+	for _, field := range t.getFieldsFor(i) {
 		cols = append(cols,
 			ColumnMapping{
 				structFieldName: field.fieldName,
@@ -43,17 +48,15 @@ func getColumnsFor(i interface{}) (cols []ColumnMapping) {
 				isNotNull:       field.isNotNull,
 			})
 	}
-	return
+	t.Fields = cols
 }
 
 func (t *TableMap) HasPrimaryKey() bool {
-	// TODO(ttacon)
-	return false
+	return len(t.primaryKeys) > 0
 }
 
-func (t *TableMap) PrimaryKey() reflect.Value {
-	// TODO(ttacon)
-	return reflect.ValueOf(nil)
+func (t *TableMap) PrimaryKey() []reflect.StructField {
+	return t.primaryKeys
 }
 
 type dbField struct {
@@ -76,14 +79,14 @@ type joinInfo struct {
 	// how to know what field to fill in?
 }
 
-func getFieldsFor(i interface{}) []dbField {
+func (t *TableMap) getFieldsFor(v interface{}) []dbField {
 	fields := make(map[string]dbField)
 
-	t := reflect.TypeOf(i)
-	n := t.NumField()
+	ty := reflect.TypeOf(v)
+	n := ty.NumField()
 
 	for i := 0; i < n; i++ {
-		f := t.Field(i)
+		f := ty.Field(i)
 		field := dbField{
 			fieldName:    f.Name,
 			columnName:   getColName(f),
@@ -94,6 +97,9 @@ func getFieldsFor(i interface{}) []dbField {
 			isNotNull:    tagIsNotNull(f.Tag.Get("dbInfo")),
 		}
 		fields[field.fieldName] = field
+		if field.isPrimaryKey {
+			t.primaryKeys = append(t.primaryKeys, f)
+		}
 	}
 
 	var toReturn []dbField
