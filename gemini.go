@@ -50,8 +50,7 @@ func (g *Gemini) AddTableWithName(i interface{}, tableName string) *Gemini {
 
 func (g *Gemini) CreateTableFor(i interface{}) error {
 	// need to know how to pass in which db to interact with, or just type?
-	query := CreateTableQueryFor(i, MySQL{})
-	fmt.Println(query)
+	_ = CreateTableQueryFor(i, MySQL{})
 	return nil
 }
 

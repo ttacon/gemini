@@ -171,3 +171,10 @@ func Test_CreateTableQueryFor(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateTableFor(t *testing.T) {
+	g := &Gemini{}
+	if g.CreateTableFor(TestCreateTableForStruct{}) != nil {
+		t.Error("At current skeleton, CreateTableFor should not return errors, but it did...")
+	}
+}
