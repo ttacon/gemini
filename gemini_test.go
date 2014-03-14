@@ -16,6 +16,13 @@ type testCreateQuery struct {
 	out     string
 }
 
+func TestNewGemini(t *testing.T) {
+	g := NewGemini(nil)
+	if g == nil {
+		t.Error("ruh roh")
+	}
+}
+
 func Test_CreateTableQueryFor(t *testing.T) {
 	var tests = []testCreateQuery{
 		testCreateQuery{
