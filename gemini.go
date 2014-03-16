@@ -14,9 +14,11 @@ type TableInfo struct{}
 type geminiMode string
 
 type Gemini struct {
-	Dbs map[string]*sql.DB
+	Dbs []*sql.DB
 
 	StructsMap map[string]*TableMap
+
+	TablesToDb map[string]*sql.DB
 
 	// unexported fields
 	runInMemory bool
@@ -32,20 +34,59 @@ func NewGemini(dbs []*sql.DB) *Gemini {
 	if len(dbs) == 0 {
 		return &Gemini{
 			runInMemory: true,
+			StructsMap:  make(map[string]*TableMap),
+			TablesToDb:  make(map[string]*sql.DB),
 			data:        make(map[string][]interface{}),
 		}
 	}
-	return &Gemini{}
+	return &Gemini{
+		Dbs:        dbs,
+		StructsMap: make(map[string]*TableMap),
+		TablesToDb: make(map[string]*sql.DB),
+		data:       make(map[string][]interface{}),
+	}
 }
 
-func (g *Gemini) AddTable(i interface{}) *Gemini {
-	g.AddTableWithName(i, reflect.TypeOf(i).Name())
+func (g *Gemini) AddTable(i interface{}) error {
+	if len(g.Dbs) != 1 {
+		return NoDbSpecified
+	}
+
+	g.AddTableWithName(i, tableNameForStruct(reflect.TypeOf(i)))
+	return nil
+}
+
+func (g *Gemini) AddTableWithName(i interface{}, tableName string) error {
+	if len(g.Dbs) != 1 {
+		return NoDbSpecified
+	}
+
+	g.AddTableWithNameToDb(i, tableName, g.Dbs[0])
+	return nil
+}
+
+func (g *Gemini) AddTableToDb(i interface{}, db *sql.DB) *Gemini {
+	g.AddTableWithNameToDb(i, tableNameForStruct(reflect.TypeOf(i)), db)
 	return g
 }
 
-func (g *Gemini) AddTableWithName(i interface{}, tableName string) *Gemini {
+func (g *Gemini) AddTableWithNameToDb(
+	i interface{},
+	tableName string,
+	db *sql.DB) *Gemini {
 
+	// TODO(ttacon): add mapping of struct to map
+	g.StructsMap[tableName] = TableMapFromStruct(i, tableName)
+	g.TablesToDb[tableName] = db
 	return g
+}
+
+func (g *Gemini) dbForStruct(i interface{}) (*sql.DB, error) {
+	db, ok := g.TablesToDb[tableNameForStruct(reflect.TypeOf(i))]
+	if !ok {
+		return nil, NoDbForStruct
+	}
+	return db, nil
 }
 
 func (g *Gemini) CreateTableFor(i interface{}) error {
@@ -54,17 +95,24 @@ func (g *Gemini) CreateTableFor(i interface{}) error {
 	return nil
 }
 
-func CreateTableQueryFor(i interface{}, dialect Dialect) string {
-	query := "CREATE TABLE "
-	val := reflect.ValueOf(i)
-	t := val.Type()
-	tableName := val.Type().Name()
-	if v, ok := val.Type().FieldByName("TableInfo"); ok {
+// returns the name of the table the struct should refer to
+// if the TableInfo field is not on the struct, we assume
+// the table name to be the name of the struct
+func tableNameForStruct(t reflect.Type) string {
+	tableName := t.Name()
+	if v, ok := t.FieldByName("TableInfo"); ok {
 		if realName := v.Tag.Get("name"); realName != "" {
 			tableName = realName
 		}
 	}
-	query += tableName + " (\n"
+	return tableName
+}
+
+func CreateTableQueryFor(i interface{}, dialect Dialect) string {
+	query := "CREATE TABLE "
+	val := reflect.ValueOf(i)
+	t := val.Type()
+	query += tableNameForStruct(t) + " (\n"
 
 	n := t.NumField()
 	// loop through fields and add to query

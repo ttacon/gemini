@@ -2,8 +2,17 @@ package gemini
 
 import (
 	"database/sql"
+	"reflect"
 	"testing"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+
+	_ "github.com/lib/pq"
+
+	_ "github.com/mattn/go-sqlite3"
+
+	_ "github.com/ziutek/mymysql/godrv"
 )
 
 type TestCreateTableForStruct struct {
@@ -183,5 +192,133 @@ func TestCreateTableFor(t *testing.T) {
 	g := &Gemini{}
 	if g.CreateTableFor(TestCreateTableForStruct{}) != nil {
 		t.Error("At current skeleton, CreateTableFor should not return errors, but it did...")
+	}
+}
+
+type genTest struct {
+	in  interface{}
+	out string
+}
+
+type TableNameStruct1 struct{}
+type TableNameStruct2 struct {
+	Field1 string
+	Field2 int
+}
+type TableNameStruct3 struct {
+	TableInfo TableInfo `name:"yoloStruct"`
+	Field1    string
+	Field2    int
+}
+
+func Test_tableNameForStruct(t *testing.T) {
+	var tests = []genTest{
+		genTest{
+			TableNameStruct1{},
+			"TableNameStruct1",
+		},
+		genTest{
+			TableNameStruct2{},
+			"TableNameStruct2",
+		},
+		genTest{
+			TableNameStruct3{},
+			"yoloStruct",
+		},
+	}
+
+	for i, test := range tests {
+		if tableNameForStruct(reflect.TypeOf(test.in)) != test.out {
+			// TODO(ttacon): remove i from loop, and use test.name (once added to struct)
+			t.Errorf("test %d failed in Test_tableNameForStruct", i)
+		}
+	}
+}
+
+type addTableTest struct {
+	dbs                  []*sql.DB
+	structs              []interface{}
+	expectedErr          error
+	expectedDbForStructs map[reflect.Type]*sql.DB
+}
+
+type ATS1 struct{}
+type ATS2 struct {
+	ID int
+}
+type ATS3 struct {
+	Name string
+}
+type ATS4 struct {
+	TableInfo `name:"yoloFrontend"`
+}
+type ATS5 struct {
+	TableInfo TableInfo `name:"yoloBackend"`
+	ID        uint8
+	Name      string
+}
+
+func TestAddTable(t *testing.T) {
+	// TODO(ttacon): move these to helper
+	db, err := sql.Open("sqlite3", "/tmp/gorptest.bin")
+	if err != nil {
+		t.Errorf("failed to connect to sqlite3, err: %v", err)
+	}
+
+	var tests = []addTableTest{
+		addTableTest{
+			structs: []interface{}{
+				ATS1{},
+			},
+			expectedErr: NoDbSpecified,
+		},
+		addTableTest{
+			dbs: []*sql.DB{db},
+			structs: []interface{}{
+				ATS1{},
+				ATS2{},
+				ATS3{},
+				ATS4{},
+				ATS5{},
+			},
+			expectedDbForStructs: map[reflect.Type]*sql.DB{
+				reflect.TypeOf(ATS1{}): db,
+				reflect.TypeOf(ATS2{}): db,
+				reflect.TypeOf(ATS3{}): db,
+				reflect.TypeOf(ATS4{}): db,
+				reflect.TypeOf(ATS5{}): db,
+			},
+		},
+	}
+
+	for i, test := range tests {
+		g := NewGemini(test.dbs)
+		var err error
+		for _, str := range test.structs {
+			err = g.AddTable(str)
+			if err != nil {
+				break
+			}
+		}
+
+		if err != nil {
+			if test.expectedErr != nil && test.expectedErr == err {
+				continue
+			}
+			t.Errorf("test %d failed, err: %v", i, err)
+			continue
+		}
+
+		for _, str := range test.structs {
+			dbFound, err := g.dbForStruct(str)
+			if err != nil {
+				t.Error(err)
+				continue
+			}
+
+			if dbFound != test.expectedDbForStructs[reflect.TypeOf(str)] {
+				t.Errorf("database that %v is tied was not the expected one", str)
+			}
+		}
 	}
 }
