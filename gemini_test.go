@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	_ "github.com/ziutek/mymysql/godrv"
+	"labix.org/v2/mgo"
 )
 
 func TestConnectionToDbs(t *testing.T) {
@@ -31,6 +32,11 @@ func TestConnectionToDbs(t *testing.T) {
 	_, err = sql.Open(postgresConnInfo.Driver, postgresConnInfo.DSN)
 	if err != nil {
 		t.Errorf("failed to connect to postgres, err: %v", err)
+	}
+
+	_, err = mgo.Dial(mongodbConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to fonnect to mongod, err: %v", err)
 	}
 }
 
@@ -402,4 +408,10 @@ var postgresConnInfo = DbConnInfo{
 var sqlite3ConnInfo = DbConnInfo{
 	DSN:    "/tmp/gorptest.bin",
 	Driver: "sqlite3",
+}
+
+// TODO(ltacon): connection to db will need to be dialect specific
+var mongodbConnInfo = DbConnInfo{
+	DSN:    "localhost:27017/geminitest",
+	Driver: "",
 }
