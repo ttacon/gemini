@@ -42,6 +42,8 @@ func TestConnectionToDbs(t *testing.T) {
 
 type TestCreateTableForStruct struct {
 	TableInfo TableInfo `name:"differentName"`
+	ID        int64
+	Name      string
 }
 
 type testCreateQuery struct {
@@ -214,9 +216,14 @@ func Test_CreateTableQueryFor(t *testing.T) {
 }
 
 func TestCreateTableFor(t *testing.T) {
-	g := &Gemini{}
-	if g.CreateTableFor(TestCreateTableForStruct{}) != nil {
-		t.Error("At current skeleton, CreateTableFor should not return errors, but it did...")
+	mysql, err := sql.Open(gomysqlConnInfo.Driver, gomysqlConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to connect to gomysql, err: %v", err)
+	}
+	g := NewGemini([]*sql.DB{mysql})
+	g.AddTableToDb(TestCreateTableForStruct{}, mysql)
+	if err := g.CreateTableFor(TestCreateTableForStruct{}, MySQL{}); err != nil {
+		t.Errorf("Create table returned error: %v", err)
 	}
 }
 

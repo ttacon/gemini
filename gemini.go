@@ -75,7 +75,6 @@ func (g *Gemini) AddTableWithNameToDb(
 	tableName string,
 	db *sql.DB) *Gemini {
 
-	// TODO(ttacon): add mapping of struct to map
 	g.StructsMap[tableName] = TableMapFromStruct(i, tableName)
 	g.TablesToDb[tableName] = db
 	return g
@@ -89,9 +88,22 @@ func (g *Gemini) dbForStruct(i interface{}) (*sql.DB, error) {
 	return db, nil
 }
 
-func (g *Gemini) CreateTableFor(i interface{}) error {
+func (g *Gemini) CreateTableFor(i interface{}, d Dialect) error {
 	// need to know how to pass in which db to interact with, or just type?
-	_ = CreateTableQueryFor(i, MySQL{})
+	tableName := tableNameForStruct(reflect.TypeOf(i))
+	db, ok := g.TablesToDb[tableName]
+	if !ok {
+		return NoDbSpecified
+	}
+	query := CreateTableQueryFor(i, d)
+
+	// TODO(ttacon): should have bool about transaction mode
+	// TODO(ttacon): don't ignore result
+	_, err := db.Exec(query)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -109,6 +121,7 @@ func tableNameForStruct(t reflect.Type) string {
 }
 
 func CreateTableQueryFor(i interface{}, dialect Dialect) string {
+	// TODO/NOTE(ttacon): should we be nice and return an error if the struct has no fields?
 	query := "CREATE TABLE "
 	val := reflect.ValueOf(i)
 	t := val.Type()
