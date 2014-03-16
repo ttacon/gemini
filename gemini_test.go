@@ -7,13 +7,32 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-
 	_ "github.com/lib/pq"
-
 	_ "github.com/mattn/go-sqlite3"
-
 	_ "github.com/ziutek/mymysql/godrv"
 )
+
+func TestConnectionToDbs(t *testing.T) {
+	_, err := sql.Open("sqlite3", "/tmp/gorptest.bin")
+	if err != nil {
+		t.Errorf("failed to connect to sqlite3, err: %v", err)
+	}
+
+	_, err = sql.Open(mymysqlConnInfo.Driver, mymysqlConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to connect to mymysql, err: %v", err)
+	}
+
+	_, err = sql.Open(gomysqlConnInfo.Driver, gomysqlConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to connect to gomysql, err: %v", err)
+	}
+
+	_, err = sql.Open(postgresConnInfo.Driver, postgresConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to connect to postgres, err: %v", err)
+	}
+}
 
 type TestCreateTableForStruct struct {
 	TableInfo TableInfo `name:"differentName"`
@@ -259,10 +278,42 @@ type ATS5 struct {
 }
 
 func TestAddTable(t *testing.T) {
-	// TODO(ttacon): move these to helper
-	db, err := sql.Open("sqlite3", "/tmp/gorptest.bin")
+	// TODO(ttacon): pull these out into one function
+	sqlite3db, err := sql.Open("sqlite3", "/tmp/gorptest.bin")
 	if err != nil {
 		t.Errorf("failed to connect to sqlite3, err: %v", err)
+	}
+
+	mymysqldb, err := sql.Open(mymysqlConnInfo.Driver, mymysqlConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to connect to mymysql, err: %v", err)
+	}
+
+	gomysqldb, err := sql.Open(gomysqlConnInfo.Driver, gomysqlConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to connect to gomysql, err: %v", err)
+	}
+
+	postgresdb, err := sql.Open(postgresConnInfo.Driver, postgresConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to connect to postgres, err: %v", err)
+	}
+
+	// TODO(ttacon): move these to helper
+	var fiveStructs = []interface{}{
+		ATS1{},
+		ATS2{},
+		ATS3{},
+		ATS4{},
+		ATS5{},
+	}
+
+	var typeToStruct = map[reflect.Type]*sql.DB{
+		reflect.TypeOf(ATS1{}): sqlite3db,
+		reflect.TypeOf(ATS2{}): sqlite3db,
+		reflect.TypeOf(ATS3{}): sqlite3db,
+		reflect.TypeOf(ATS4{}): sqlite3db,
+		reflect.TypeOf(ATS5{}): sqlite3db,
 	}
 
 	var tests = []addTableTest{
@@ -273,21 +324,19 @@ func TestAddTable(t *testing.T) {
 			expectedErr: NoDbSpecified,
 		},
 		addTableTest{
-			dbs: []*sql.DB{db},
-			structs: []interface{}{
-				ATS1{},
-				ATS2{},
-				ATS3{},
-				ATS4{},
-				ATS5{},
+			dbs:                  []*sql.DB{sqlite3db},
+			structs:              fiveStructs,
+			expectedDbForStructs: typeToStruct,
+		},
+		addTableTest{
+			dbs: []*sql.DB{
+				sqlite3db,
+				mymysqldb,
+				postgresdb,
+				gomysqldb,
 			},
-			expectedDbForStructs: map[reflect.Type]*sql.DB{
-				reflect.TypeOf(ATS1{}): db,
-				reflect.TypeOf(ATS2{}): db,
-				reflect.TypeOf(ATS3{}): db,
-				reflect.TypeOf(ATS4{}): db,
-				reflect.TypeOf(ATS5{}): db,
-			},
+			structs:     fiveStructs,
+			expectedErr: NoDbSpecified,
 		},
 	}
 
@@ -321,4 +370,36 @@ func TestAddTable(t *testing.T) {
 			}
 		}
 	}
+}
+
+type DbConnInfo struct {
+	DSN    string
+	Driver string
+}
+
+var dbConnsInfo = []DbConnInfo{
+	mymysqlConnInfo,
+	gomysqlConnInfo,
+	postgresConnInfo,
+	sqlite3ConnInfo,
+}
+
+var mymysqlConnInfo = DbConnInfo{
+	DSN:    "gorptest/gorptest/gorptest",
+	Driver: "mymysql",
+}
+
+var gomysqlConnInfo = DbConnInfo{
+	DSN:    "gorptest:gorptest@/gorptest",
+	Driver: "mysql",
+}
+
+var postgresConnInfo = DbConnInfo{
+	DSN:    "user=gorptest password=gorptest dbname=gorptest sslmode=disable",
+	Driver: "postgres",
+}
+
+var sqlite3ConnInfo = DbConnInfo{
+	DSN:    "/tmp/gorptest.bin",
+	Driver: "sqlite3",
 }
