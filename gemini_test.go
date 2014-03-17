@@ -34,7 +34,7 @@ func TestConnectionToDbs(t *testing.T) {
 		t.Errorf("failed to connect to postgres, err: %v", err)
 	}
 
-	_, err = mgo.Dial(mongodbConnInfo.DSN)
+	_, err = mgo.DialWithTimeout(mongodbConnInfo.DSN, time.Second)
 	if err != nil {
 		t.Errorf("failed to fonnect to mongod, err: %v", err)
 	}
@@ -44,6 +44,11 @@ type TestCreateTableForStruct struct {
 	TableInfo TableInfo `name:"differentName"`
 	ID        int64
 	Name      string
+}
+
+type TestCreateTableForStruct2 struct {
+	ID   int64
+	Name string
 }
 
 type testCreateQuery struct {
@@ -220,11 +225,28 @@ func TestCreateTableFor(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to connect to gomysql, err: %v", err)
 	}
+
 	g := NewGemini([]*sql.DB{mysql})
 	g.AddTableToDb(TestCreateTableForStruct{}, mysql)
 	if err := g.CreateTableFor(TestCreateTableForStruct{}, MySQL{}); err != nil {
 		t.Errorf("Create table returned error: %v", err)
 	}
+
+	if err := g.CreateTableFor(TestCreateTableForStruct2{}, MySQL{}); err != NoDbSpecified {
+		t.Errorf("Create table didn't return expected error: %v", err)
+	}
+
+	sqlite3, err := sql.Open("sqlite3", "/tmp/gorptest.bin")
+	if err != nil {
+		t.Skip()
+	}
+
+	// TODO(ttacon): move to AddTable test suite (when it exists)
+	g = NewGemini([]*sql.DB{mysql, sqlite3})
+	if err := g.AddTableWithName(TestCreateTableForStruct2{}, "coolName"); err != NoDbSpecified {
+		t.Errorf("Create table didn't return expected error: %v", err)
+	}
+
 }
 
 type genTest struct {
