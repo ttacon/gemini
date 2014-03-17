@@ -403,7 +403,7 @@ var mymysqlConnInfo = DbConnInfo{
 }
 
 var gomysqlConnInfo = DbConnInfo{
-	DSN:    "gorptest:gorptest@/gorptest",
+	DSN:    "geminitest:geminitest@/geminitest",
 	Driver: "mysql",
 }
 
