@@ -20,6 +20,8 @@ type Gemini struct {
 
 	TablesToDb map[string]*sql.DB
 
+	DbToDriver map[*sql.DB]Dialect
+
 	// unexported fields
 	runInMemory bool
 

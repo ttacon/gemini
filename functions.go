@@ -6,6 +6,7 @@ import (
 )
 
 func (g *Gemini) Get(i interface{}, key interface{}) error {
+	// TODO(ttacon): really the key param should be variadic (for composite primary keys)
 	val := reflect.ValueOf(i)
 	if !val.IsValid() {
 		return fmt.Errorf("invalid struct value")
@@ -35,6 +36,29 @@ func (g *Gemini) getItFrom(i interface{}, key interface{}, table *TableMap) erro
 
 func (g *Gemini) Insert(i interface{}) error {
 	// TODO(ttacon)
+	tableName := tableNameForStruct(reflect.TypeOf(i))
+
+	// TODO(ttacon): perhaps we should be smart and try to just insert if there is only one db
+	// even if we don't have a mapping from table to db
+	db, ok := g.TablesToDb[tableName]
+	if !ok {
+		return fmt.Errorf("table %s is not specified to interact with any db", tableName)
+	}
+
+	tMap, ok := g.StructsMap[tableName]
+	if !ok {
+		return fmt.Errorf("table %s does not have a table map", tableName)
+	}
+
+	// TODO(ttacon): make smart mapping of table name to db driver and dialect
+	query, args := insertQueryAndArgs(i, tMap, g.DbToDriver[db])
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%#v\n", result)
+
 	return nil
 }
 

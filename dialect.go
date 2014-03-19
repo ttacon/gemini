@@ -12,12 +12,47 @@ MySQL
 Postgres
 Sqlite
 MongoDb
+
+To add:
+- redis
+- FoundationDB
+- MariaDB (specifically GIS functions?)
 */
 
 var TestMode = true
 
 type Dialect interface {
 	ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string
+}
+
+func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []interface{}) {
+	var (
+		query     string
+		valString string
+		args      []interface{}
+	)
+
+	v := reflect.ValueOf(i)
+
+	// TODO(ttacon): change to use bytes.Buffer and WriteString
+	query += "insert into " + t.TableName + " ("
+	for _, field := range t.Fields {
+		if field.goType == reflect.TypeOf(TableInfo{}) {
+			continue
+		}
+		if len(valString) != 0 {
+			query += ", "
+			valString += ", "
+		}
+
+		// TODO(ttacon): need to ignore ignored fields (-), omitempty fields and lazy joins?
+		query += field.columnName
+		// TODO(ttacon): eventually use placeholders here
+		valString += "?"
+		args = append(args, v.FieldByName(field.structFieldName))
+	}
+
+	return query + ") values (" + valString + ")", args
 }
 
 type MySQL struct{}
