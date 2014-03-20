@@ -37,6 +37,7 @@ func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []
 	// TODO(ttacon): change to use bytes.Buffer and WriteString
 	query += "insert into " + t.TableName + " ("
 	for _, field := range t.Fields {
+		// we ignore table names of course
 		if field.goType == reflect.TypeOf(TableInfo{}) {
 			continue
 		}
@@ -45,7 +46,7 @@ func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []
 			valString += ", "
 		}
 
-		// TODO(ttacon): need to ignore ignored fields (-), omitempty fields and lazy joins?
+		// TODO(ttacon): need to ignore ignored fields (-), omitempty fields and lazy joins
 		query += field.columnName
 		// TODO(ttacon): eventually use placeholders here
 		valString += "?"
