@@ -57,8 +57,6 @@ func (g *Gemini) Insert(i interface{}) error {
 		return err
 	}
 
-	fmt.Printf("%#v\n", result)
-
 	return nil
 }
 
