@@ -41,16 +41,23 @@ func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []
 		if field.goType == reflect.TypeOf(TableInfo{}) {
 			continue
 		}
+
 		if len(valString) != 0 {
 			query += ", "
 			valString += ", "
 		}
 
-		// TODO(ttacon): need to ignore ignored fields (-), omitempty fields and lazy joins
-		query += field.columnName
-		// TODO(ttacon): eventually use placeholders here
-		valString += "?"
-		args = append(args, v.FieldByName(field.structFieldName))
+		if field.isAutoIncr {
+			query += field.columnName
+			// TODO(ttacon): below needs to depend on dialect
+			valString += "null"
+		} else {
+			// TODO(ttacon): need to ignore ignored fields (-), omitempty fields and lazy joins?
+			query += field.columnName
+			// TODO(ttacon): eventually use placeholders here
+			valString += "?"
+			args = append(args, v.FieldByName(field.structFieldName).Interface())
+		}
 	}
 
 	return query + ") values (" + valString + ")", args
