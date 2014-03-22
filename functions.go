@@ -52,7 +52,8 @@ func (g *Gemini) Insert(i interface{}) error {
 
 	// TODO(ttacon): make smart mapping of table name to db driver and dialect
 	query, args := insertQueryAndArgs(i, tMap, g.DbToDriver[db])
-	result, err := db.Exec(query, args...)
+	// TODO(ttacon): use result (the underscored place)?
+	_, err := db.Exec(query, args...)
 	if err != nil {
 		return err
 	}
