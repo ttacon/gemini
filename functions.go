@@ -35,8 +35,12 @@ func (g *Gemini) getItFrom(i interface{}, key interface{}, table *TableMap) erro
 }
 
 func (g *Gemini) Insert(i interface{}) error {
-	// TODO(ttacon)
-	tableName := tableNameForStruct(reflect.TypeOf(i))
+	if reflect.TypeOf(i).Kind() != reflect.Ptr {
+		return fmt.Errorf("cannot insert non pointer type")
+	}
+
+	e := reflect.ValueOf(i).Elem()
+	tableName := tableNameForStruct(e.Type())
 
 	// TODO(ttacon): perhaps we should be smart and try to just insert if there is only one db
 	// even if we don't have a mapping from table to db
@@ -51,11 +55,27 @@ func (g *Gemini) Insert(i interface{}) error {
 	}
 
 	// TODO(ttacon): make smart mapping of table name to db driver and dialect
-	query, args := insertQueryAndArgs(i, tMap, g.DbToDriver[db])
+	query, args := insertQueryAndArgs(e, tMap, g.DbToDriver[db])
 	// TODO(ttacon): use result (the underscored place)?
-	_, err := db.Exec(query, args...)
+	result, err := db.Exec(query, args...)
 	if err != nil {
 		return err
+	}
+
+	if tMap.autoIncrField != nil {
+		autoIncrVal, err := result.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		fieldVal := e.FieldByName(tMap.autoIncrField.Name)
+		k := fieldVal.Kind()
+
+		if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
+			fieldVal.SetInt(autoIncrVal)
+		} else if (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
+			fieldVal.SetUint(uint64(autoIncrVal))
+		}
 	}
 
 	return nil

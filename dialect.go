@@ -27,12 +27,18 @@ type Dialect interface {
 
 func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []interface{}) {
 	var (
+		v         reflect.Value
 		query     string
 		valString string
 		args      []interface{}
 	)
 
-	v := reflect.ValueOf(i)
+	// TODO(ttacon): make reflect.Value{} constant
+	if reflect.TypeOf(i) == reflect.TypeOf(reflect.Value{}) {
+		v = i.(reflect.Value)
+	} else {
+		v = reflect.ValueOf(i)
+	}
 
 	// TODO(ttacon): change to use bytes.Buffer and WriteString
 	query += "insert into " + t.TableName + " ("

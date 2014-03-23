@@ -26,8 +26,7 @@ func TestInsert_OnlyMysql(t *testing.T) {
 	// TODO(ttacon): create function to set up dbs/tables prior to tests running
 	g.CreateTableFor(InsertStruct{}, MySQL{})
 
-	if err = g.Insert(i); err != nil {
+	if err = g.Insert(&i); err != nil {
 		t.Error(err)
 	}
-
 }

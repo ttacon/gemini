@@ -12,7 +12,8 @@ type TableMap struct {
 	StructName string
 	Fields     []ColumnMapping
 
-	primaryKeys []reflect.StructField
+	primaryKeys   []reflect.StructField
+	autoIncrField *reflect.StructField
 }
 
 type ColumnMapping struct {
@@ -99,6 +100,13 @@ func (t *TableMap) getFieldsFor(v interface{}) []dbField {
 		fields[field.fieldName] = field
 		if field.isPrimaryKey {
 			t.primaryKeys = append(t.primaryKeys, f)
+		}
+
+		if field.isAutoIncr {
+			if t.autoIncrField != nil {
+				// TODO(ttacon): we need to report an error in this case, as we can't have more than one auto incr field
+			}
+			t.autoIncrField = &f
 		}
 	}
 
