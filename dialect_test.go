@@ -11,6 +11,9 @@ type insertQueryAndArgsTest struct {
 }
 
 func Test_insertQueryAndArgs(t *testing.T) {
+	// TODO(ttacon): fix order built in insertQueryAndArgs to be deterministic
+	// presently I've seen this test fail by the order of fields being traversed
+	// being non-deterministic
 	var tests = []*insertQueryAndArgsTest{
 		&insertQueryAndArgsTest{
 			TestCreateTableForStruct{},
