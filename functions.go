@@ -54,6 +54,17 @@ func (g *Gemini) Insert(i interface{}) error {
 		return fmt.Errorf("table %s does not have a table map", tableName)
 	}
 
+	if dbInfo, ok := g.TableToDatabaseInfo[tableName]; !ok {
+		// TODO(ttacon): we need a better mapping, also, this needs to be changed to
+		// be dealt with by the dialect, and not checked like this.
+		return fmt.Errorf("no dialect found for db")
+	} else {
+		if reflect.TypeOf(dbInfo.Dialect) == reflect.TypeOf(MongoDB{}) {
+			//TODO(ttacon):todo
+			return dbInfo.MongoSesh.DB(dbInfo.DbName).C(tableName).Insert(i)
+		}
+	}
+
 	// TODO(ttacon): make smart mapping of table name to db driver and dialect
 	query, args := insertQueryAndArgs(e, tMap, g.DbToDriver[db])
 	// TODO(ttacon): use result (the underscored place)?

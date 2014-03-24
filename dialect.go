@@ -199,3 +199,11 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 	}
 
 }
+
+//////////// MongoDB ////////////
+type MongoDB struct{}
+
+func (m MongoDB) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
+	// TODO(ttacon): do it
+	return "yolo"
+}

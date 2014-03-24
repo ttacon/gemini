@@ -226,8 +226,15 @@ func TestCreateTableFor(t *testing.T) {
 		t.Errorf("failed to connect to gomysql, err: %v", err)
 	}
 
-	g := NewGemini([]*sql.DB{mysql})
-	g.AddTableToDb(TestCreateTableForStruct{}, mysql)
+	mysqlInfo := &DbInfo{
+		Dialect: MySQL{},
+		Db:      mysql,
+		DbName:  "geminitest",
+	}
+
+	g := NewGemini([]*DbInfo{mysqlInfo})
+
+	g.AddTableToDb(TestCreateTableForStruct{}, mysqlInfo)
 	if err := g.CreateTableFor(TestCreateTableForStruct{}, MySQL{}); err != nil {
 		t.Errorf("Create table returned error: %v", err)
 	}
@@ -241,12 +248,33 @@ func TestCreateTableFor(t *testing.T) {
 		t.Skip()
 	}
 
+	sqlite3Info := &DbInfo{
+		Dialect: SqliteDialect{},
+		Db:      sqlite3,
+		DbName:  "geminitest",
+	}
+
 	// TODO(ttacon): move to AddTable test suite (when it exists)
-	g = NewGemini([]*sql.DB{mysql, sqlite3})
+	g = NewGemini([]*DbInfo{mysqlInfo, sqlite3Info})
 	if err := g.AddTableWithName(TestCreateTableForStruct2{}, "coolName"); err != NoDbSpecified {
 		t.Errorf("Create table didn't return expected error: %v", err)
 	}
 
+	/**
+		mongo, err := mgo.DialWithTimeout(mongodbConnInfo.DSN, time.Second)
+		if err != nil {
+			t.Errorf("failed to connect to gomysql, err: %v", err)
+		}
+
+		g = NewGemini([]*sql.DB{mongo})
+		if err := g.AddTableWithName(TestCreateTableForStruct2{}, "coolName"); err != NoDbSpecified {
+			t.Errorf("Create table didn't return expected error: %v", err)
+		}
+
+		if err := g.CreateTableFor(TestCreateTableForStruct{}, MongoDB{}); err != nil {
+			t.Errorf("Create table returned error: %v", err)
+		}
+	**/
 }
 
 type genTest struct {
@@ -290,7 +318,7 @@ func Test_tableNameForStruct(t *testing.T) {
 }
 
 type addTableTest struct {
-	dbs                  []*sql.DB
+	dbs                  []*DbInfo
 	structs              []interface{}
 	expectedErr          error
 	expectedDbForStructs map[reflect.Type]*sql.DB
@@ -319,9 +347,21 @@ func TestAddTable(t *testing.T) {
 		t.Errorf("failed to connect to sqlite3, err: %v", err)
 	}
 
+	sqlite3Info := &DbInfo{
+		Dialect: SqliteDialect{},
+		Db:      sqlite3db,
+		DbName:  "geminitest",
+	}
+
 	mymysqldb, err := sql.Open(mymysqlConnInfo.Driver, mymysqlConnInfo.DSN)
 	if err != nil {
 		t.Errorf("failed to connect to mymysql, err: %v", err)
+	}
+
+	mymysqlInfo := &DbInfo{
+		Dialect: MySQL{},
+		Db:      mymysqldb,
+		DbName:  "geminitest",
 	}
 
 	gomysqldb, err := sql.Open(gomysqlConnInfo.Driver, gomysqlConnInfo.DSN)
@@ -329,9 +369,21 @@ func TestAddTable(t *testing.T) {
 		t.Errorf("failed to connect to gomysql, err: %v", err)
 	}
 
+	gomysqlInfo := &DbInfo{
+		Dialect: MySQL{},
+		Db:      gomysqldb,
+		DbName:  "geminitest",
+	}
+
 	postgresdb, err := sql.Open(postgresConnInfo.Driver, postgresConnInfo.DSN)
 	if err != nil {
 		t.Errorf("failed to connect to postgres, err: %v", err)
+	}
+
+	postgresInfo := &DbInfo{
+		Dialect: PostgresDialect{},
+		Db:      postgresdb,
+		DbName:  "geminitest",
 	}
 
 	// TODO(ttacon): move these to helper
@@ -359,16 +411,16 @@ func TestAddTable(t *testing.T) {
 			expectedErr: NoDbSpecified,
 		},
 		addTableTest{
-			dbs:                  []*sql.DB{sqlite3db},
+			dbs:                  []*DbInfo{sqlite3Info},
 			structs:              fiveStructs,
 			expectedDbForStructs: typeToStruct,
 		},
 		addTableTest{
-			dbs: []*sql.DB{
-				sqlite3db,
-				mymysqldb,
-				postgresdb,
-				gomysqldb,
+			dbs: []*DbInfo{
+				sqlite3Info,
+				mymysqlInfo,
+				postgresInfo,
+				gomysqlInfo,
 			},
 			structs:     fiveStructs,
 			expectedErr: NoDbSpecified,
@@ -420,7 +472,7 @@ var dbConnsInfo = []DbConnInfo{
 }
 
 var mymysqlConnInfo = DbConnInfo{
-	DSN:    "gorptest/gorptest/gorptest",
+	DSN:    "geminitest/geminitest/geminitest",
 	Driver: "mymysql",
 }
 
@@ -430,7 +482,7 @@ var gomysqlConnInfo = DbConnInfo{
 }
 
 var postgresConnInfo = DbConnInfo{
-	DSN:    "user=gorptest password=gorptest dbname=gorptest sslmode=disable",
+	DSN:    "user=geminitest password=geminitest dbname=geminitest sslmode=disable",
 	Driver: "postgres",
 }
 

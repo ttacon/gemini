@@ -3,6 +3,7 @@ package gemini
 import (
 	"database/sql"
 	"fmt"
+	"labix.org/v2/mgo"
 	"reflect"
 )
 
@@ -13,6 +14,13 @@ type TableInfo struct{}
 
 type geminiMode string
 
+type DbInfo struct {
+	Dialect   Dialect
+	Db        *sql.DB
+	MongoSesh *mgo.Session
+	DbName    string
+}
+
 type Gemini struct {
 	Dbs []*sql.DB
 
@@ -21,6 +29,11 @@ type Gemini struct {
 	TablesToDb map[string]*sql.DB
 
 	DbToDriver map[*sql.DB]Dialect
+
+	// ugh adding these for the moment, table name -> db info
+	TableToDatabaseInfo map[string]*DbInfo
+
+	DatabaseInfo []*DbInfo
 
 	// unexported fields
 	runInMemory bool
@@ -32,53 +45,66 @@ type Gemini struct {
 	// be a map to a (map) on one, ([]map) some of those keys
 }
 
-func NewGemini(dbs []*sql.DB) *Gemini {
-	if len(dbs) == 0 {
+func NewGemini(dbsInfo []*DbInfo) *Gemini {
+	if len(dbsInfo) == 0 {
 		return &Gemini{
-			runInMemory: true,
-			StructsMap:  make(map[string]*TableMap),
-			TablesToDb:  make(map[string]*sql.DB),
-			data:        make(map[string][]interface{}),
+			runInMemory:         true,
+			StructsMap:          make(map[string]*TableMap),
+			TablesToDb:          make(map[string]*sql.DB),
+			DbToDriver:          make(map[*sql.DB]Dialect),
+			TableToDatabaseInfo: make(map[string]*DbInfo),
+			data:                make(map[string][]interface{}),
 		}
 	}
-	return &Gemini{
-		Dbs:        dbs,
-		StructsMap: make(map[string]*TableMap),
-		TablesToDb: make(map[string]*sql.DB),
-		data:       make(map[string][]interface{}),
+
+	dbs := make([]*sql.DB, len(dbsInfo))
+	for i, dbInfo := range dbsInfo {
+		dbs[i] = dbInfo.Db
 	}
+
+	g := &Gemini{
+		Dbs:                 dbs,
+		StructsMap:          make(map[string]*TableMap),
+		TablesToDb:          make(map[string]*sql.DB),
+		data:                make(map[string][]interface{}),
+		DatabaseInfo:        dbsInfo,
+		TableToDatabaseInfo: make(map[string]*DbInfo),
+	}
+
+	return g
 }
 
 func (g *Gemini) AddTable(i interface{}) error {
-	if len(g.Dbs) != 1 {
+	if len(g.DatabaseInfo) != 1 {
 		return NoDbSpecified
 	}
 
-	g.AddTableWithName(i, tableNameForStruct(reflect.TypeOf(i)))
+	g.AddTableWithNameToDb(i, tableNameForStruct(reflect.TypeOf(i)), g.DatabaseInfo[0])
 	return nil
 }
 
 func (g *Gemini) AddTableWithName(i interface{}, tableName string) error {
-	if len(g.Dbs) != 1 {
+	if len(g.DatabaseInfo) != 1 {
 		return NoDbSpecified
 	}
 
-	g.AddTableWithNameToDb(i, tableName, g.Dbs[0])
+	g.AddTableWithNameToDb(i, tableName, g.DatabaseInfo[0])
 	return nil
 }
 
-func (g *Gemini) AddTableToDb(i interface{}, db *sql.DB) *Gemini {
-	g.AddTableWithNameToDb(i, tableNameForStruct(reflect.TypeOf(i)), db)
+func (g *Gemini) AddTableToDb(i interface{}, dbInfo *DbInfo) *Gemini {
+	g.AddTableWithNameToDb(i, tableNameForStruct(reflect.TypeOf(i)), dbInfo)
 	return g
 }
 
 func (g *Gemini) AddTableWithNameToDb(
 	i interface{},
 	tableName string,
-	db *sql.DB) *Gemini {
+	dbInfo *DbInfo) *Gemini {
 
 	g.StructsMap[tableName] = TableMapFromStruct(i, tableName)
-	g.TablesToDb[tableName] = db
+	g.TablesToDb[tableName] = dbInfo.Db
+	g.TableToDatabaseInfo[tableName] = dbInfo
 	return g
 }
 
@@ -97,6 +123,8 @@ func (g *Gemini) CreateTableFor(i interface{}, d Dialect) error {
 	if !ok {
 		return NoDbSpecified
 	}
+
+	// TODO(ttacon): the following functions all need to be pulled out into helpers
 	query := CreateTableQueryFor(i, d)
 
 	// TODO(ttacon): should have bool about transaction mode

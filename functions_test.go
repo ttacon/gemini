@@ -3,8 +3,10 @@ package gemini
 import (
 	"database/sql"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"labix.org/v2/mgo"
 )
 
 type InsertStruct struct {
@@ -18,13 +20,46 @@ func TestInsert_OnlyMysql(t *testing.T) {
 		t.Errorf("failed to connect to gomysql, err: %v", err)
 	}
 
-	g := NewGemini([]*sql.DB{mysqlDb})
+	g := NewGemini([]*DbInfo{
+		&DbInfo{
+			Dialect: MySQL{},
+			Db:      mysqlDb,
+			DbName:  "geminitest",
+		},
+	})
+
 	i := InsertStruct{
 		Name: "yolo",
 	}
 	g.AddTable(InsertStruct{})
 	// TODO(ttacon): create function to set up dbs/tables prior to tests running
 	g.CreateTableFor(InsertStruct{}, MySQL{})
+
+	if err = g.Insert(&i); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestInsert_OnlyMongo(t *testing.T) {
+	mongodb, err := mgo.DialWithTimeout(mongodbConnInfo.DSN, time.Second)
+	if err != nil {
+		t.Errorf("failed to connect to gomysql, err: %v", err)
+	}
+
+	g := NewGemini([]*DbInfo{
+		&DbInfo{
+			Dialect:   MongoDB{},
+			MongoSesh: mongodb,
+			DbName:    "geminitest",
+		},
+	})
+
+	i := InsertStruct{
+		Name: "yolo",
+	}
+	g.AddTable(InsertStruct{})
+	// TODO(ttacon): create function to set up dbs/tables prior to tests running
+	//g.CreateTableFor(InsertStruct{}, MongoDB{})
 
 	if err = g.Insert(&i); err != nil {
 		t.Error(err)
