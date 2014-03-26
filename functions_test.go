@@ -10,8 +10,36 @@ import (
 )
 
 type InsertStruct struct {
-	Id   int `dbInfo:"autoIncr"`
+	Id   int `dbInfo:"autoIncr,primaryKey"`
 	Name string
+}
+
+func TestGet_OnlyMysql(t *testing.T) {
+	mysqlDb, err := sql.Open(gomysqlConnInfo.Driver, gomysqlConnInfo.DSN)
+	if err != nil {
+		t.Errorf("failed to connect to gomysql, err: %v", err)
+	}
+
+	g := NewGemini([]*DbInfo{
+		&DbInfo{
+			Dialect: MySQL{},
+			Db:      mysqlDb,
+			DbName:  "geminitest",
+		},
+	})
+
+	g.AddTable(InsertStruct{})
+
+	i := InsertStruct{}
+
+	err = g.Get(&i, 1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if i.Id != 1 {
+		t.Errorf("Expected i's id to be 1, got %d (%#v)", i.Id, i)
+	}
 }
 
 func TestInsert_OnlyMysql(t *testing.T) {

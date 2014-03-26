@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-func (g *Gemini) Get(i interface{}, key interface{}) error {
+func (g *Gemini) Get(i interface{}, keys ...interface{}) error {
 	// TODO(ttacon): really the key param should be variadic (for composite primary keys)
 	val := reflect.ValueOf(i)
 	if !val.IsValid() {
@@ -18,20 +18,81 @@ func (g *Gemini) Get(i interface{}, key interface{}) error {
 	}
 
 	table := g.tableFor(i)
-
-	// NOTE(ttacon): for now we won't support composite primary keys
-	// if we have no primary key at this point, let's
-	// let them know that Get() was a silly idea
 	if !table.HasPrimaryKey() {
 		return NoPrimaryKey
 	}
 
-	return g.getItFrom(i, key, table)
+	return g.getItFrom(i, keys, table)
 }
 
-func (g *Gemini) getItFrom(i interface{}, key interface{}, table *TableMap) error {
+func (g *Gemini) getItFrom(i interface{}, keys []interface{}, table *TableMap) error {
 	// TODO(ttacon)
-	return nil
+	primaryKeys := table.PrimaryKey()
+	if len(primaryKeys) != len(keys) {
+		return fmt.Errorf(
+			"to use get, must provide correct number of primary keys (expected %d, got %d",
+			len(primaryKeys),
+			len(keys),
+		)
+	}
+
+	queryString := "select "
+	for i, field := range table.Fields {
+		if i != 0 {
+			queryString += ", "
+		}
+		queryString += field.columnName
+	}
+
+	queryString += " from " + table.TableName + " where "
+
+	for i, key := range primaryKeys {
+		if i != 0 {
+			queryString += " and "
+		}
+		// TODO(ttacon): right now this doesn't deal with struct tag names nor
+		// ensuring the value at key[i] is a decent value (not struct or pointer)
+		// also, what if that field is a Struct, we need to know how to set the id
+		// correctly
+		queryString += fmt.Sprintf("%s = %v", key.Name, keys[i])
+	}
+
+	// this currently won't work for MongoDB
+	db, ok := g.TableToDatabaseInfo[table.TableName]
+	if !ok {
+		return fmt.Errorf("no database info for table %q", table.TableName)
+	}
+
+	rows, err := db.Db.Query(queryString)
+	if err != nil {
+		return err
+	}
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+
+	if !rows.Next() {
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+	}
+
+	v := reflect.ValueOf(i)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	target := make([]interface{}, len(cols))
+	for i, col := range cols {
+		// TODO(ttacon): go through evern column here
+		// TODO(ttacon): need to make sure this is all safe
+		f := v.FieldByName(table.ColumnNameToMapping[col].structFieldName)
+		target[i] = f.Addr().Interface()
+	}
+
+	return rows.Scan(target...)
 }
 
 func (g *Gemini) Insert(i interface{}) error {
@@ -117,6 +178,10 @@ func (g *Gemini) tableFor(i interface{}) *TableMap {
 		tableName string
 		val       = reflect.ValueOf(i)
 	)
+
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
 
 	if v, ok := val.Type().FieldByName("TableInfo"); ok && v.Tag.Get("name") != "" {
 		tableName = v.Tag.Get("name")

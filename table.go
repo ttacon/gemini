@@ -8,9 +8,10 @@ import (
 )
 
 type TableMap struct {
-	TableName  string
-	StructName string
-	Fields     []ColumnMapping
+	TableName           string
+	StructName          string
+	Fields              []ColumnMapping
+	ColumnNameToMapping map[string]ColumnMapping
 
 	primaryKeys   []reflect.StructField
 	autoIncrField *reflect.StructField
@@ -33,7 +34,16 @@ func TableMapFromStruct(i interface{}, tableName string) *TableMap {
 	}
 	tableMap.getColumnsFor(i)
 
+	tableMap.buildColumnNameMap()
+
 	return tableMap
+}
+
+func (t *TableMap) buildColumnNameMap() {
+	t.ColumnNameToMapping = make(map[string]ColumnMapping)
+	for _, col := range t.Fields {
+		t.ColumnNameToMapping[col.columnName] = col
+	}
 }
 
 func (t *TableMap) getColumnsFor(i interface{}) {
@@ -149,6 +159,7 @@ func parseJoinInfo(j string) *joinInfo {
 			fmt.Sprintf("invalid number of arguments found: %d", len(pieces)),
 		})
 	}
+
 	return &joinInfo{
 		tableName:  table,
 		columnName: column,
