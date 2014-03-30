@@ -174,7 +174,7 @@ func (g *Gemini) Select(i interface{}, query string, args ...interface{}) error 
 	return nil
 }
 
-func (g *Gemini) Exec(i interface{}, query string, args ...interface{}) error {
+func (g *Gemini) Exec(query string, args ...interface{}) error {
 	// TODO(ttacon)
 	return nil
 }
