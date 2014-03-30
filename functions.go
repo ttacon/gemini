@@ -105,48 +105,54 @@ func (g *Gemini) Insert(i interface{}) error {
 
 	// TODO(ttacon): perhaps we should be smart and try to just insert if there is only one db
 	// even if we don't have a mapping from table to db
-	db, ok := g.TablesToDb[tableName]
+	dbInfo, ok := g.TableToDatabaseInfo[tableName]
 	if !ok {
 		return fmt.Errorf("table %s is not specified to interact with any db", tableName)
 	}
+	db := dbInfo.Db
 
 	tMap, ok := g.StructsMap[tableName]
 	if !ok {
 		return fmt.Errorf("table %s does not have a table map", tableName)
 	}
 
-	if dbInfo, ok := g.TableToDatabaseInfo[tableName]; !ok {
-		// TODO(ttacon): we need a better mapping, also, this needs to be changed to
-		// be dealt with by the dialect, and not checked like this.
-		return fmt.Errorf("no dialect found for db")
-	} else {
-		if reflect.TypeOf(dbInfo.Dialect) == reflect.TypeOf(MongoDB{}) {
-			//TODO(ttacon):todo
-			return dbInfo.MongoSesh.DB(dbInfo.DbName).C(tableName).Insert(i)
-		}
+	if reflect.TypeOf(dbInfo.Dialect) == reflect.TypeOf(MongoDB{}) {
+		return dbInfo.MongoSesh.DB(dbInfo.DbName).C(tableName).Insert(i)
 	}
 
 	// TODO(ttacon): make smart mapping of table name to db driver and dialect
-	query, args := insertQueryAndArgs(e, tMap, g.DbToDriver[db])
+	query, args := insertQueryAndArgs(e, tMap, dbInfo.Dialect)
 	// TODO(ttacon): use result (the underscored place)?
-	result, err := db.Exec(query, args...)
-	if err != nil {
-		return err
-	}
-
-	if tMap.autoIncrField != nil {
-		autoIncrVal, err := result.LastInsertId()
+	var autoIncrId int64
+	if reflect.TypeOf(dbInfo.Dialect) == reflect.TypeOf(PostgresDialect{}) {
+		rows := db.QueryRow(query, args...)
+		if tMap.autoIncrField != nil {
+			err := rows.Scan(&autoIncrId)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		result, err := db.Exec(query, args...)
 		if err != nil {
 			return err
 		}
+		if tMap.autoIncrField != nil {
+			autoIncrId, err = result.LastInsertId()
+			if err != nil {
+				return err
+			}
+		}
+	}
 
+	if tMap.autoIncrField != nil {
 		fieldVal := e.FieldByName(tMap.autoIncrField.Name)
 		k := fieldVal.Kind()
 
 		if (k == reflect.Int) || (k == reflect.Int16) || (k == reflect.Int32) || (k == reflect.Int64) {
-			fieldVal.SetInt(autoIncrVal)
+			fieldVal.SetInt(autoIncrId)
 		} else if (k == reflect.Uint16) || (k == reflect.Uint32) || (k == reflect.Uint64) {
-			fieldVal.SetUint(uint64(autoIncrVal))
+			fieldVal.SetUint(uint64(autoIncrId))
 		}
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"reflect"
+	"strings"
 )
 
 // The sole purpose of TableInfo is to tag extra information you would like.
@@ -183,7 +184,10 @@ func CreateTableQueryFor(i interface{}, dialect Dialect) string {
 		query += fmt.Sprintf(
 			"\t%s %s%s\n",
 			fieldName,
-			dialect.ToSqlType(fieldType, 0, false),
+			dialect.ToSqlType(
+				fieldType,
+				0,
+				strings.Contains(f.Tag.Get("dbInfo"), "autoIncr")),
 			lineEnding,
 		)
 

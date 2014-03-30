@@ -23,6 +23,7 @@ var TestMode = true
 
 type Dialect interface {
 	ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string
+	NextPlaceholder(curr int) (int, string)
 }
 
 func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []interface{}) {
@@ -41,7 +42,9 @@ func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []
 	}
 
 	// TODO(ttacon): change to use bytes.Buffer and WriteString
+	currVal := 1
 	query += "insert into " + t.TableName + " ("
+	returningQuery := ""
 	for _, field := range t.Fields {
 		// we ignore table names of course
 		if field.goType == reflect.TypeOf(TableInfo{}) {
@@ -54,22 +57,34 @@ func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []
 		}
 
 		if field.isAutoIncr {
-			query += field.columnName
-			// TODO(ttacon): below needs to depend on dialect
-			valString += "null"
+			// TODO(ttacon): really we should be ignoring this
+			// unless that column has a value, so we need a test case for this
+			//query += field.columnName
+			//valString += "null"
+			// TODO(ttacon): make this a function/constant
+			if reflect.TypeOf(dialect) == reflect.TypeOf(PostgresDialect{}) {
+				returningQuery = fmt.Sprintf(" returning %s", field.columnName)
+			}
 		} else {
 			// TODO(ttacon): need to ignore ignored fields (-), omitempty fields and lazy joins?
 			query += field.columnName
 			// TODO(ttacon): eventually use placeholders here
-			valString += "?"
+			nextCurr, placeholder := dialect.NextPlaceholder(currVal)
+			valString += placeholder
+			currVal = nextCurr
+			// valString += "?"
 			args = append(args, v.FieldByName(field.structFieldName).Interface())
 		}
 	}
 
-	return query + ") values (" + valString + ")", args
+	return query + ") values (" + valString + ")" + returningQuery, args
 }
 
 type MySQL struct{}
+
+func (m MySQL) NextPlaceholder(curr int) (int, string) {
+	return curr, "?"
+}
 
 func (m MySQL) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
@@ -120,6 +135,10 @@ func (m MySQL) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string 
 
 type SqliteDialect struct{}
 
+func (s SqliteDialect) NextPlaceholder(curr int) (int, string) {
+	return curr, "?"
+}
+
 func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
 	case reflect.Ptr:
@@ -154,6 +173,10 @@ func (d SqliteDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool)
 }
 
 type PostgresDialect struct{}
+
+func (p PostgresDialect) NextPlaceholder(curr int) (int, string) {
+	return curr + 1, fmt.Sprintf("$%d", curr)
+}
 
 func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	switch val.Kind() {
@@ -202,6 +225,10 @@ func (d PostgresDialect) ToSqlType(val reflect.Type, maxsize int, isAutoIncr boo
 
 //////////// MongoDB ////////////
 type MongoDB struct{}
+
+func (m MongoDB) NextPlaceholder(curr int) (int, string) {
+	return curr, "yolo"
+}
 
 func (m MongoDB) ToSqlType(val reflect.Type, maxsize int, isAutoIncr bool) string {
 	// TODO(ttacon): do it
