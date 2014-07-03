@@ -170,8 +170,52 @@ func (g *Gemini) Update(i interface{}) error {
 }
 
 func (g *Gemini) Select(i interface{}, query string, args ...interface{}) error {
-	// TODO(ttacon)
-	return nil
+	val := reflect.ValueOf(i)
+	if !val.IsValid() {
+		return fmt.Errorf("invalid struct value")
+	}
+
+	keyVal := reflect.ValueOf(i)
+	if !keyVal.IsValid() {
+		return fmt.Errorf("invalid key value")
+	}
+
+	table := g.tableFor(i)
+
+	dbi, ok := g.TableToDatabaseInfo[table.TableName]
+	if !ok {
+		return fmt.Errorf("no database info for table %q", table.TableName)
+	}
+	rows, err := dbi.Db.Query(query, args...)
+	if err != nil {
+		return err
+	}
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+
+	if !rows.Next() {
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+	}
+
+	v := reflect.ValueOf(i)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	target := make([]interface{}, len(cols))
+	for i, col := range cols {
+		// TODO(ttacon): go through evern column here
+		// TODO(ttacon): need to make sure this is all safe
+		f := v.FieldByName(table.ColumnNameToMapping[col].structFieldName)
+		target[i] = f.Addr().Interface()
+	}
+
+	return rows.Scan(target...)
 }
 
 func (g *Gemini) Exec(query string, args ...interface{}) error {
