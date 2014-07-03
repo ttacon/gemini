@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"database/sql"
 	"fmt"
 	"reflect"
 )
@@ -218,9 +219,17 @@ func (g *Gemini) Select(i interface{}, query string, args ...interface{}) error 
 	return rows.Scan(target...)
 }
 
-func (g *Gemini) Exec(query string, args ...interface{}) error {
-	// TODO(ttacon)
-	return nil
+func (g *Gemini) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if len(g.Dbs) == 1 {
+		return g.Dbs[0].Exec(query, args...)
+	}
+	return nil, NoDbSpecified
+}
+
+func (g *Gemini) ExecWithInfo(query string, args ...interface{}, info *DbInfo) (sql.Result, error) {
+	// TODO(ttacon): allow users to attach db name to DbInfo so they don't
+	// have to hold onto the db info
+	return info.Exec(query, args...)
 }
 
 func (g *Gemini) tableFor(i interface{}) *TableMap {
