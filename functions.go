@@ -74,6 +74,27 @@ func (g *Gemini) getItFrom(i interface{}, keys []interface{}, table *TableMap) e
 		return err
 	}
 
+	if reflect.TypeOf(i).Kind() == reflect.Slice {
+
+		for rows.Next() {
+			if rows.Err() != nil {
+				return rows.Err()
+			}
+
+			v := reflect.ValueOf(i)
+			if v.Kind() == reflect.Ptr {
+				v = v.Elem()
+			}
+
+			target := make([]interface{}, len(cols))
+			for i, col := range cols {
+				// TODO(ttacon): go through evern column here
+				// TODO(ttacon): need to make sure this is all safe
+				f := v.FieldByName(table.ColumnNameToMapping[col].structFieldName)
+				target[i] = f.Addr().Interface()
+			}
+		}
+	}
 	if !rows.Next() {
 		if rows.Err() != nil {
 			return rows.Err()
@@ -226,10 +247,10 @@ func (g *Gemini) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return nil, NoDbSpecified
 }
 
-func (g *Gemini) ExecWithInfo(query string, args ...interface{}, info *DbInfo) (sql.Result, error) {
+func (g *Gemini) ExecWithInfo(query string, info *DbInfo, args ...interface{}) (sql.Result, error) {
 	// TODO(ttacon): allow users to attach db name to DbInfo so they don't
 	// have to hold onto the db info
-	return info.Exec(query, args...)
+	return info.Db.Exec(query, args...)
 }
 
 func (g *Gemini) tableFor(i interface{}) *TableMap {
