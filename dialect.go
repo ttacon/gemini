@@ -80,6 +80,41 @@ func insertQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []
 	return query + ") values (" + valString + ")" + returningQuery, args
 }
 
+func deleteQueryAndArgs(i interface{}, t *TableMap, dialect Dialect) (string, []interface{}) {
+	var (
+		v     reflect.Value
+		query string
+		args  []interface{}
+	)
+
+	// TODO(ttacon): make reflect.Value{} constant
+	if reflect.TypeOf(i) == reflect.TypeOf(reflect.Value{}) {
+		v = i.(reflect.Value)
+	} else {
+		v = reflect.ValueOf(i)
+	}
+
+	// TODO(ttacon): change to use bytes.Buffer and WriteString
+	currVal := 1
+	query += fmt.Sprintf("delete from %s where ", t.TableName)
+	for i, field := range t.primaryKeys {
+		if i != 0 {
+			query += " and "
+		}
+
+		// TODO(ttacon): eventually use placeholders here
+		nextCurr, placeholder := dialect.NextPlaceholder(currVal)
+		// TODO(ttacon): need to change primary key slice to
+		// deal with field name and column name
+		query += fmt.Sprintf("%s = %s", field.Name, placeholder)
+		currVal = nextCurr
+
+		args = append(args, v.FieldByName(field.Name).Interface())
+	}
+
+	return query, args
+}
+
 type MySQL struct{}
 
 func (m MySQL) NextPlaceholder(curr int) (int, string) {

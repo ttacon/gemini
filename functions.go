@@ -183,7 +183,39 @@ func (g *Gemini) Insert(i interface{}) error {
 
 func (g *Gemini) Delete(i interface{}) error {
 	// TODO(ttacon)
-	return nil
+	e := reflect.ValueOf(i).Elem()
+	tableName := tableNameForStruct(e.Type())
+
+	// TODO(ttacon): perhaps we should be smart and try to just insert if there is only one db
+	// even if we don't have a mapping from table to db
+	dbInfo, ok := g.TableToDatabaseInfo[tableName]
+	if !ok {
+		return fmt.Errorf("table %s is not specified to interact with any db", tableName)
+	}
+	db := dbInfo.Db
+
+	tMap, ok := g.StructsMap[tableName]
+	if !ok {
+		return fmt.Errorf("table %s does not have a table map", tableName)
+	}
+
+	if len(tMap.primaryKeys) == 0 {
+		return fmt.Errorf("table %s does not have a primary key registered and "+
+			"so cannot delete from it by object", tableName)
+	}
+
+	// TODO(ttacon): ensure primary keys for table exist on struct passed in
+
+	if reflect.TypeOf(dbInfo.Dialect) == reflect.TypeOf(MongoDB{}) {
+		// TODO(ttacon): do it
+		//return dbInfo.MongoSesh.DB(dbInfo.DbName).C(tableName).Insert(i)
+		return nil
+	}
+
+	// TODO(ttacon): make smart mapping of table name to db driver and dialect
+	query, args := deleteQueryAndArgs(e, tMap, dbInfo.Dialect)
+	_, err := db.Exec(query, args...)
+	return err
 }
 
 func (g *Gemini) Update(i interface{}) error {
