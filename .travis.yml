@@ -19,3 +19,8 @@ before_script:
  - mysql -u root -e "GRANT ALL ON geminitest.* TO geminitest@localhost IDENTIFIED BY 'geminitest'"
  - psql -c "CREATE DATABASE geminitest;" -U postgres
  - psql -c "CREATE USER "geminitest" WITH SUPERUSER PASSWORD 'geminitest';" -U postgres
+
+notifications:
+  webhooks:
+    urls:
+      - http://104.236.67.205:18009/travisci
