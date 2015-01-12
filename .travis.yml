@@ -22,7 +22,7 @@ before_script:
  
 script:
  - go test -v ./... -cover
-
+ 
 notifications:
   webhooks:
     urls:
